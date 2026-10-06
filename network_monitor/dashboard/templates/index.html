@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Network Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 24px; }
+        h1 { color: #222; }
+        .panel { background: white; border-radius: 8px; padding: 16px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { color: #666; font-weight: 600; }
+        .baseline-yes { color: green; font-weight: bold; }
+        .baseline-no { color: #999; }
+        .alert-row { background: #fff3f3; }
+        .alert-type { font-weight: bold; color: #b00020; }
+        .status { font-size: 13px; color: #666; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Network Monitor Dashboard</h1>
+    <div class="status" id="status">Loading...</div>
+
+    <div class="panel">
+        <h2>Recent alerts</h2>
+        <table id="alerts-table">
+            <thead>
+                <tr><th>Time</th><th>Type</th><th>Message</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <h2>Known devices</h2>
+        <table id="devices-table">
+            <thead>
+                <tr><th>Hostname</th><th>MAC</th><th>Vendor</th><th>First seen</th><th>Last seen</th><th>Trusted</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function trustDevice(mac) {
+            await fetch(`/api/trust/${mac}`, { method: 'POST' });
+            refresh();
+        }
+        async function refresh() {
+            const devicesRes = await fetch('/api/devices');
+            const devices = await devicesRes.json();
+            const devicesBody = document.querySelector('#devices-table tbody');
+            devicesBody.innerHTML = devices.map(d => `
+                <tr>
+                    <td>${d.hostname && d.hostname !== 'unknown' ? d.hostname : '<em>unresolved</em>'}</td>
+                    <td>${d.mac}</td>
+                    <td>${d.vendor}</td>
+                    <td>${d.first_seen}</td>
+                    <td>${d.last_seen}</td>
+                    <td class="${d.is_baseline ? 'baseline-yes' : 'baseline-no'}">${d.is_baseline ? 'Yes' : 'No'}</td>
+                    <td>${d.is_baseline ? '' : `<button onclick="trustDevice('${d.mac}')">Trust</button>`}</td>
+                </tr>
+            `).join('');
+
+            const alertsRes = await fetch('/api/alerts');
+            const alertsList = await alertsRes.json();
+            const alertsBody = document.querySelector('#alerts-table tbody');
+            alertsBody.innerHTML = alertsList.map(a => `
+                <tr class="alert-row">
+                    <td>${a.timestamp}</td>
+                    <td class="alert-type">${a.alert_type}</td>
+                    <td>${a.message}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('status').textContent =
+                `${devices.length} device(s) known, ${alertsList.length} alert(s) logged — auto-refreshing every 10s`;
+        }
+
+        refresh();
+        setInterval(refresh, 10000);
+    </script>
+</body>
+</html>
