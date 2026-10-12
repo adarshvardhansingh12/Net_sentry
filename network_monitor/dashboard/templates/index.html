@@ -15,6 +15,7 @@
         .alert-row { background: #fff3f3; }
         .alert-type { font-weight: bold; color: #b00020; }
         .status { font-size: 13px; color: #666; margin-bottom: 8px; }
+        .note { font-size: 12px; color: #888; font-style: italic; margin-top: -4px; }
     </style>
 </head>
 <body>
@@ -36,6 +37,27 @@
         <table id="devices-table">
             <thead>
                 <tr><th>Hostname</th><th>MAC</th><th>Vendor</th><th>First seen</th><th>Last seen</th><th>Trusted</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <h2>Live traffic — protocol breakdown</h2>
+        <p class="note">Header/metadata only — source, destination, protocol, and size. Payload content is never captured or shown.</p>
+        <table id="protocol-table">
+            <thead>
+                <tr><th>Protocol / Service</th><th>Total bytes</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <h2>Live traffic — recent packets</h2>
+        <table id="packets-table">
+            <thead>
+                <tr><th>Time</th><th>Source IP</th><th>Destination IP</th><th>Protocol</th><th>Size (bytes)</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -72,6 +94,25 @@
                     <td>${a.message}</td>
                 </tr>
             `).join('');
+
+            const trafficRes = await fetch('/api/traffic');
+            const traffic = await trafficRes.json();
+
+            const protocolBody = document.querySelector('#protocol-table tbody');
+            protocolBody.innerHTML = traffic.protocol_stats.map(p => `
+                <tr><td>${p.protocol}</td><td>${p.bytes.toLocaleString()}</td></tr>
+            `).join('') || '<tr><td colspan="2"><em>No traffic captured yet</em></td></tr>';
+
+            const packetsBody = document.querySelector('#packets-table tbody');
+            packetsBody.innerHTML = traffic.recent_packets.map(p => `
+                <tr>
+                    <td>${p.time}</td>
+                    <td>${p.src_ip}</td>
+                    <td>${p.dst_ip}</td>
+                    <td>${p.protocol}</td>
+                    <td>${p.size}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5"><em>No traffic captured yet</em></td></tr>';
 
             document.getElementById('status').textContent =
                 `${devices.length} device(s) known, ${alertsList.length} alert(s) logged — auto-refreshing every 10s`;
