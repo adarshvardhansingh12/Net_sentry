@@ -20,6 +20,12 @@ import db
 import scanner
 import detector
 import alerts
+import traffic_monitor
+
+try:
+    import ml_detector
+except ImportError:  # scikit-learn not installed: run with rules only
+    ml_detector = None
 
 SCAN_INTERVAL_SECONDS = 30
 
@@ -37,6 +43,21 @@ USE_ACTIVE_SCAN = True
 # and only runs once per new device (cached afterward), so it won't slow
 # down repeat scans or hit rate limits. Set to False to stay fully offline.
 USE_ONLINE_VENDOR_LOOKUP = True
+
+# Set this to True to run continuous background packet capture for real
+# traffic-volume statistics (headers/metadata only — see traffic_monitor.py
+# for exactly what is and isn't captured). Same requirements as active
+# scan: scapy + Npcap + Administrator PowerShell. This is what makes the
+# TRAFFIC_OUTLIER detection rule actually work, instead of comparing
+# against hardcoded zeros.
+USE_TRAFFIC_CAPTURE = True
+
+# Set this to True to also run the machine-learning detector (Isolation
+# Forest, one model per device - see ml_detector.py). It needs
+# scikit-learn (pip install scikit-learn) and real traffic data, so it only
+# does something while USE_TRAFFIC_CAPTURE is on. It stays quiet for a device
+# until that device has enough history (MIN_SAMPLES readings).
+USE_ML_DETECTION = True
 
 
 def run_one_scan_cycle():
@@ -58,6 +79,18 @@ def run_one_scan_cycle():
     unnamed_devices_present = any(d["mac"] not in _known_macs_cache for d in devices)
     mdns_map = scanner.discover_mdns_hostnames(timeout=3) if unnamed_devices_present else {}
 
+    # Pull real traffic volume collected by the background capture thread
+    # since the last scan cycle. Empty dict if capture is disabled or
+    # unavailable — everything still works, just with bytes_transferred=0
+    # like before, falling back to the old (honest) behavior.
+    mac_features = traffic_monitor.get_and_reset_mac_features() if USE_TRAFFIC_CAPTURE else {}
+
+    if USE_TRAFFIC_CAPTURE:
+        # Write a snapshot to the database so the dashboard (a separate
+        # process) can display protocol breakdown and recent packets.
+        db.set_protocol_stats(traffic_monitor.get_protocol_totals())
+        db.set_recent_packets(traffic_monitor.get_recent_packets(limit=50))
+
     for device in devices:
         mac = device["mac"]
         ip = device["ip"]
@@ -77,10 +110,26 @@ def run_one_scan_cycle():
         hostname = "unknown" if already_known else scanner.get_hostname(ip, mdns_map=mdns_map)
         _known_macs_cache.add(mac)
 
-        is_first_seen = db.upsert_device(mac, ip, hostname=hostname, vendor=vendor)
-        db.log_connection(mac, ip, bytes_transferred=0)  # hook up real traffic stats later
+        features = mac_features.get(mac, {"bytes": 0, "packets": 0, "dests": 0})
+        current_bytes = features["bytes"]
 
-        triggered = detector.run_all_checks(mac, ip, is_first_seen)
+        is_first_seen = db.upsert_device(mac, ip, hostname=hostname, vendor=vendor)
+
+        # Run the checks BEFORE logging this cycle's reading, so that the
+        # history they compare against does not already contain it.
+        triggered = detector.run_all_checks(mac, ip, is_first_seen, current_bytes=current_bytes)
+        if USE_ML_DETECTION and USE_TRAFFIC_CAPTURE and ml_detector is not None:
+            ml_message = ml_detector.check_ml_anomaly(mac, ip, features)
+            if ml_message:
+                triggered.append(ml_message)
+
+        db.log_connection(
+            mac, ip,
+            bytes_transferred=current_bytes,
+            packets=features["packets"],
+            unique_dests=features["dests"],
+        )
+
         for message in triggered:
             alerts.dispatch(message)
 
@@ -92,6 +141,9 @@ def main():
     print("[main] Initializing database...")
     db.init_db()
 
+    if USE_TRAFFIC_CAPTURE:
+        traffic_monitor.start_capture()
+
     print(f"[main] Starting monitoring loop (every {SCAN_INTERVAL_SECONDS}s). Ctrl+C to stop.")
     try:
         while True:
@@ -99,6 +151,9 @@ def main():
             time.sleep(SCAN_INTERVAL_SECONDS)
     except KeyboardInterrupt:
         print("\n[main] Stopped by user.")
+    finally:
+        if USE_TRAFFIC_CAPTURE:
+            traffic_monitor.stop_capture()
 
 
 if __name__ == "__main__":
