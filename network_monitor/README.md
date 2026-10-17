@@ -6,7 +6,7 @@
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-Isolation_Forest-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 
-**Sentinel** is an intelligent, lightweight Local Area Network (LAN) surveillance and anomaly detection system. It continuously discovers connected devices, fingerprints hardware vendors and hostnames, monitors packet traffic volumes, learns baseline device behavior using **unsupervised Machine Learning (Isolation Forests)**, and flags rogue hosts or anomalous activity via an interactive real-time SOC dashboard and multi-channel alerts (Email & Discord).
+**NetSentry** is an intelligent, lightweight Local Area Network (LAN) surveillance and anomaly detection system. It continuously discovers connected devices, fingerprints hardware vendors and hostnames, monitors packet traffic volumes, learns baseline device behavior using **unsupervised Machine Learning (Isolation Forests)**, and flags rogue hosts or anomalous activity via an interactive real-time SOC dashboard and multi-channel alerts (Email & Discord).
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 🏛️ System Architecture
 
-Sentinel is organized into a modular pipeline where network telemetry, detection engines, storage, and visual presentation operate seamlessly:
+NetSentry is organized into a modular pipeline where network telemetry, detection engines, storage, and visual presentation operate seamlessly:
 
 ```mermaid
 flowchart TD
