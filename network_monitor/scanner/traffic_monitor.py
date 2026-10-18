@@ -41,6 +41,8 @@ PORT_LABELS = {
 
 _lock = threading.Lock()
 _mac_bytes = defaultdict(int)          # mac -> bytes seen since last reset
+_mac_packets = defaultdict(int)        # mac -> packets seen since last reset
+_mac_dests = defaultdict(set)          # mac -> distinct destination IPs since last reset
 _protocol_totals = defaultdict(int)    # protocol label -> cumulative bytes
 _recent_packets = deque(maxlen=100)    # rolling log of recent packet HEADERS only
 _sniffer = None
@@ -82,7 +84,10 @@ def _handle_packet(pkt):
             # Attribute traffic volume to whichever side is the local
             # device sending this packet — good enough for volume/anomaly
             # purposes without needing full flow reconstruction.
-            _mac_bytes[pkt[Ether].src.lower()] += length
+            src_mac = pkt[Ether].src.lower()
+            _mac_bytes[src_mac] += length
+            _mac_packets[src_mac] += 1
+            _mac_dests[src_mac].add(dst_ip)
             _protocol_totals[label] += length
             _recent_packets.append({
                 "time": time.strftime("%H:%M:%S"),
@@ -137,6 +142,30 @@ def get_and_reset_mac_bytes():
     with _lock:
         result = dict(_mac_bytes)
         _mac_bytes.clear()
+        return result
+
+
+def get_and_reset_mac_features():
+    """
+    Returns {mac: {"bytes": int, "packets": int, "dests": int}} for the
+    interval since the last call, then clears the counters. These three
+    numbers (plus the hour of day) are the features the ML detector uses:
+    volume, packet count, and how many different hosts a device contacted.
+    Only headers are counted; payload is never read.
+    """
+    with _lock:
+        macs = set(_mac_bytes) | set(_mac_packets) | set(_mac_dests)
+        result = {
+            m: {
+                "bytes": _mac_bytes.get(m, 0),
+                "packets": _mac_packets.get(m, 0),
+                "dests": len(_mac_dests.get(m, ())),
+            }
+            for m in macs
+        }
+        _mac_bytes.clear()
+        _mac_packets.clear()
+        _mac_dests.clear()
         return result
 
 
