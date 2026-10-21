@@ -1,125 +1,2050 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Network Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel | Network Monitor & Intrusion Detection</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for high-fidelity visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 24px; }
-        h1 { color: #222; }
-        .panel { background: white; border-radius: 8px; padding: 16px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
-        th { color: #666; font-weight: 600; }
-        .baseline-yes { color: green; font-weight: bold; }
-        .baseline-no { color: #999; }
-        .alert-row { background: #fff3f3; }
-        .alert-type { font-weight: bold; color: #b00020; }
-        .status { font-size: 13px; color: #666; margin-bottom: 8px; }
-        .note { font-size: 12px; color: #888; font-style: italic; margin-top: -4px; }
+        :root {
+            --bg-base: #070a12;
+            --bg-surface: #0e1526;
+            --bg-surface-elevated: #141f36;
+            --bg-surface-hover: #1b2947;
+            --border-subtle: rgba(148, 163, 184, 0.08);
+            --border-glow: rgba(56, 189, 248, 0.25);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --accent-cyan: #06b6d4;
+            --accent-cyan-glow: rgba(6, 182, 212, 0.35);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            
+            --status-emerald: #10b981;
+            --status-emerald-bg: rgba(16, 185, 129, 0.12);
+            --status-emerald-glow: rgba(16, 185, 129, 0.25);
+            
+            --status-amber: #f59e0b;
+            --status-amber-bg: rgba(245, 158, 11, 0.12);
+            --status-amber-glow: rgba(245, 158, 11, 0.3);
+            
+            --status-rose: #f43f5e;
+            --status-rose-bg: rgba(244, 63, 94, 0.12);
+            --status-rose-glow: rgba(244, 63, 94, 0.35);
+
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
+            
+            --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
+            --shadow-glow: 0 0 25px -5px var(--accent-cyan-glow);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+            background-image: 
+                radial-gradient(circle at 15% 10%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 25%, rgba(139, 92, 246, 0.06) 0%, transparent 45%),
+                linear-gradient(to bottom, rgba(14, 21, 38, 0.3) 0%, transparent 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* Monospace elements */
+        code, .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88em;
+        }
+
+        /* Container Layout */
+        .app-container {
+            max-width: 1560px;
+            margin: 0 auto;
+            padding: 24px 32px 48px;
+        }
+
+        /* Top Header */
+        header.dashboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 18px 24px;
+            background: rgba(14, 21, 38, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 24px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .brand-icon-wrapper {
+            width: 46px;
+            height: 46px;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.2));
+            border: 1px solid var(--accent-cyan);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px var(--accent-cyan-glow);
+            position: relative;
+        }
+
+        .brand-icon-wrapper svg {
+            width: 24px;
+            height: 24px;
+            color: var(--accent-cyan);
+        }
+
+        .brand-title h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        /* Status Badge */
+        .live-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--status-emerald-bg);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: var(--radius-full);
+            color: var(--status-emerald);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--status-emerald);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            background-color: var(--status-emerald);
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        /* Countdown Ring Container */
+        .refresh-timer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: rgba(20, 31, 54, 0.6);
+            padding: 6px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .countdown-circle {
+            width: 18px;
+            height: 18px;
+            transform: rotate(-90deg);
+        }
+
+        .countdown-circle circle {
+            fill: none;
+            stroke-width: 3;
+        }
+
+        .countdown-bg {
+            stroke: rgba(148, 163, 184, 0.2);
+        }
+
+        .countdown-progress {
+            stroke: var(--accent-cyan);
+            stroke-dasharray: 44;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear;
+        }
+
+        /* Buttons & Selects */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            text-decoration: none;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(14, 165, 233, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #38bdf8, #3b82f6);
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(20, 31, 54, 0.8);
+            color: var(--text-primary);
+            border-color: var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-surface-hover);
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: var(--radius-sm);
+        }
+
+        .btn-trust {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-trust:hover {
+            background: #10b981;
+            color: #ffffff;
+            border-color: #10b981;
+            box-shadow: 0 0 12px var(--status-emerald-glow);
+        }
+
+        .btn-untrust {
+            background: rgba(244, 63, 94, 0.1);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        .btn-untrust:hover {
+            background: var(--status-rose);
+            color: #ffffff;
+            border-color: var(--status-rose);
+        }
+
+        .select-dark {
+            background: rgba(20, 31, 54, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            padding: 7px 12px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .select-dark:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        /* KPI / Metric Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(56, 189, 248, 0.3);
+            box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.6), 0 0 15px -3px var(--accent-cyan-glow);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: transparent;
+        }
+
+        .metric-card.devices::before { background: linear-gradient(90deg, #06b6d4, #3b82f6); }
+        .metric-card.alerts::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
+        .metric-card.traffic::before { background: linear-gradient(90deg, #8b5cf6, #d946ef); }
+        .metric-card.health::before { background: linear-gradient(90deg, #10b981, #06b6d4); }
+
+        .metric-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .metric-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-secondary);
+        }
+
+        .metric-icon-badge {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .metric-icon-badge.cyan { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+        .metric-icon-badge.rose { background: rgba(244, 63, 94, 0.15); color: var(--status-rose); }
+        .metric-icon-badge.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+        .metric-icon-badge.emerald { background: rgba(16, 185, 129, 0.15); color: var(--status-emerald); }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: #ffffff;
+            line-height: 1.1;
+            margin-bottom: 8px;
+        }
+
+        .metric-detail {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .pill-emerald { background: var(--status-emerald-bg); color: var(--status-emerald); }
+        .pill-amber { background: var(--status-amber-bg); color: var(--status-amber); }
+        .pill-rose { background: var(--status-rose-bg); color: var(--status-rose); }
+        .pill-cyan { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+
+        /* Visual Analytics Row */
+        .analytics-row {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .analytics-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Generic Panels */
+        .panel {
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 24px;
+        }
+
+        .panel-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: rgba(20, 31, 54, 0.4);
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-weight: 400;
+        }
+
+        .panel-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Search input styling */
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 10px;
+            width: 14px;
+            height: 14px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .search-input {
+            background: rgba(14, 21, 38, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            padding: 6px 12px 6px 32px;
+            border-radius: var(--radius-md);
+            font-size: 12.5px;
+            outline: none;
+            width: 220px;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-cyan);
+            width: 260px;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+
+        /* Tabs Navigation */
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            background: rgba(14, 21, 38, 0.9);
+            padding: 4px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--bg-surface-elevated);
+            color: #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .tab-badge {
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: var(--radius-full);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+        }
+
+        .tab-btn.active .tab-badge {
+            background: var(--accent-cyan);
+            color: #000;
+            font-weight: 700;
+        }
+
+        /* Charts & Visuals */
+        .chart-container-box {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 250px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 260px;
+            height: 200px;
+        }
+
+        /* Protocol Breakdown List */
+        .protocol-list {
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 290px;
+            overflow-y: auto;
+        }
+
+        .protocol-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .protocol-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .protocol-name {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .protocol-color-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+
+        .protocol-value {
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .progress-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Table Styling */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table.modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13.5px;
+        }
+
+        table.modern-table th {
+            background: rgba(14, 21, 38, 0.7);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            white-space: nowrap;
+        }
+
+        table.modern-table td {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            vertical-align: middle;
+            transition: background 0.15s;
+        }
+
+        table.modern-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        table.modern-table tbody tr:hover td {
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        /* Specific Table Enhancements */
+        .device-vendor-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 9px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .ip-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            background: rgba(6, 182, 212, 0.08);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: var(--radius-sm);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .mac-cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 3px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .copy-btn:hover {
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        /* Alerts Styling */
+        .alert-row-unack {
+            background: rgba(244, 63, 94, 0.04) !important;
+        }
+
+        .alert-row-unack:hover td {
+            background: rgba(244, 63, 94, 0.08) !important;
+        }
+
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .alert-badge.TRAFFIC_OUTLIER {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
+        }
+
+        .alert-badge.ML_ANOMALY {
+            background: rgba(244, 63, 94, 0.15);
+            border: 1px solid rgba(244, 63, 94, 0.4);
+            color: #fb7185;
+        }
+
+        .alert-badge.NEW_DEVICE {
+            background: rgba(6, 182, 212, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: #38bdf8;
+        }
+
+        .alert-badge.DEFAULT {
+            background: rgba(148, 163, 184, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: var(--text-secondary);
+        }
+
+        .alert-msg {
+            max-width: 580px;
+            line-height: 1.4;
+            color: #e2e8f0;
+        }
+
+        .highlight-stat {
+            color: #38bdf8;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Packet Protocol Pills */
+        .proto-pill {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+        }
+
+        .proto-pill.HTTPS { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .proto-pill.HTTP { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .proto-pill.DNS { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .proto-pill.MDNS { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .proto-pill.OTHER { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+        /* Empty state */
+        .empty-state {
+            padding: 48px 24px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+
+        /* Toast Container */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            background: rgba(14, 21, 38, 0.95);
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), var(--shadow-glow);
+            backdrop-filter: blur(12px);
+            padding: 12px 18px;
+            border-radius: var(--radius-md);
+            color: #ffffff;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(20px);
+            opacity: 0;
+            animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes toast-in {
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .spinning {
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(14, 21, 38, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.4);
+        }
     </style>
 </head>
 <body>
-    <h1>Network Monitor Dashboard</h1>
-    <div class="status" id="status">Loading...</div>
 
-    <div class="panel">
-        <h2>Recent alerts</h2>
-        <table id="alerts-table">
-            <thead>
-                <tr><th>Time</th><th>Type</th><th>Message</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+<div class="app-container">
+    <!-- Top Dashboard Header -->
+    <header class="dashboard-header">
+        <div class="header-brand">
+            <div class="brand-icon-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M12 8v4"/>
+                    <path d="M12 16h.01"/>
+                </svg>
+            </div>
+            <div class="brand-title">
+                <h1>SENTINEL <span>PRO</span></h1>
+                <div class="brand-subtitle">Autonomous Local Network Telemetry & Anomaly Detection</div>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <div class="live-status-pill">
+                <div class="pulse-dot"></div>
+                <span id="header-status-text">Network Engine Online</span>
+            </div>
+
+            <!-- Auto-refresh interval selector & countdown -->
+            <div class="refresh-timer" title="Auto-refresh interval">
+                <svg class="countdown-circle" viewBox="0 0 20 20">
+                    <circle class="countdown-bg" cx="10" cy="10" r="7"></circle>
+                    <circle class="countdown-progress" id="countdown-progress-bar" cx="10" cy="10" r="7"></circle>
+                </svg>
+                <select class="select-dark" id="refresh-interval-select" onchange="onIntervalChange()">
+                    <option value="5000">5 seconds</option>
+                    <option value="10000" selected>10 seconds</option>
+                    <option value="30000">30 seconds</option>
+                    <option value="60000">60 seconds</option>
+                    <option value="0">Manual only</option>
+                </select>
+            </div>
+
+            <!-- Manual Refresh Button -->
+            <button class="btn btn-secondary" id="btn-manual-refresh" onclick="triggerManualRefresh()">
+                <svg id="refresh-spin-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Refresh</span>
+            </button>
+
+            <!-- Sound alert toggle -->
+            <button class="btn btn-ghost" id="sound-toggle-btn" onclick="toggleSoundAlerts()" title="Toggle alert sounds">
+                <svg id="sound-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Top KPI Executive Metrics Grid -->
+    <section class="metrics-grid">
+        <!-- Metric 1: Total Devices -->
+        <div class="metric-card devices">
+            <div class="metric-top">
+                <span class="metric-title">Discovered Devices</span>
+                <div class="metric-icon-badge cyan">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value" id="kpi-device-count">0</div>
+            <div class="metric-detail">
+                <span class="pill-badge pill-emerald" id="kpi-baseline-count">0 Trusted</span>
+                <span class="pill-badge pill-amber" id="kpi-untrusted-count">0 Untrusted</span>
+            </div>
+        </div>
+
+        <!-- Metric 2: Security Alerts -->
+        <div class="metric-card alerts">
+            <div class="metric-top">
+                <span class="metric-title">Security Incidents</span>
+                <div class="metric-icon-badge rose">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value" id="kpi-alert-count">0</div>
+            <div class="metric-detail">
+                <span class="pill-badge pill-rose" id="kpi-unack-alerts">0 Unacknowledged</span>
+                <span style="color: var(--text-muted);" id="kpi-alert-summary">No active spikes</span>
+            </div>
+        </div>
+
+        <!-- Metric 3: Monitored Traffic -->
+        <div class="metric-card traffic">
+            <div class="metric-top">
+                <span class="metric-title">Observed Bandwidth</span>
+                <div class="metric-icon-badge purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value" id="kpi-traffic-bytes">0 B</div>
+            <div class="metric-detail">
+                <span class="pill-badge pill-cyan" id="kpi-packet-count">0 Packets</span>
+                <span style="color: var(--text-muted);" id="kpi-protocol-count">0 Protocols</span>
+            </div>
+        </div>
+
+        <!-- Metric 4: Health / Threat Status -->
+        <div class="metric-card health">
+            <div class="metric-top">
+                <span class="metric-title">Defensive Posture</span>
+                <div class="metric-icon-badge emerald">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value" id="kpi-health-status" style="font-size: 24px; color: #34d399;">GUARDED</div>
+            <div class="metric-detail">
+                <span id="kpi-health-detail" style="color: var(--text-secondary);">Traffic baselines established</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Visual Protocol Analytics & Traffic Breakdown -->
+    <section class="analytics-row">
+        <!-- Visual Donut Chart Panel -->
+        <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                            <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                        </svg>
+                        Protocol Share
+                    </div>
+                    <div class="panel-subtitle">Distribution by total captured bytes</div>
+                </div>
+            </div>
+            <div class="chart-container-box">
+                <div class="chart-wrapper">
+                    <canvas id="protocolDonutChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ranked Protocol List Panel -->
+        <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"/>
+                            <line x1="12" y1="20" x2="12" y2="4"/>
+                            <line x1="6" y1="20" x2="6" y2="14"/>
+                        </svg>
+                        Traffic Volume Breakdown
+                    </div>
+                    <div class="panel-subtitle">Metadata analysis (Headers only &mdash; Zero payload inspection)</div>
+                </div>
+                <div class="pill-badge pill-cyan" id="total-traffic-pill">0 Bytes Total</div>
+            </div>
+            <div class="protocol-list" id="protocol-breakdown-list">
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                    </div>
+                    <div>No traffic metrics recorded yet.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Multi-Panel Tabs Section -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-btn-devices" onclick="switchTab('devices')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Devices Inventory
+                <span class="tab-badge" id="tab-badge-devices">0</span>
+            </button>
+            <button class="tab-btn" id="tab-btn-alerts" onclick="switchTab('alerts')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Security Alerts
+                <span class="tab-badge" id="tab-badge-alerts">0</span>
+            </button>
+            <button class="tab-btn" id="tab-btn-packets" onclick="switchTab('packets')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Live Packet Stream
+                <span class="tab-badge" id="tab-badge-packets">0</span>
+            </button>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="last-updated-text">Updating...</span>
+        </div>
     </div>
 
-    <div class="panel">
-        <h2>Known devices</h2>
-        <table id="devices-table">
-            <thead>
-                <tr><th>Hostname</th><th>MAC</th><th>Vendor</th><th>First seen</th><th>Last seen</th><th>Trusted</th><th>Action</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <!-- TAB 1: Known Devices Panel -->
+    <div class="panel" id="tab-content-devices">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">
+                    <span>Discovered Network Endpoints</span>
+                </div>
+                <div class="panel-subtitle">Inventory of all active and previously seen network devices</div>
+            </div>
+            <div class="panel-controls">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="search-input" id="device-search-input" placeholder="Search IP, MAC, hostname, vendor..." oninput="renderDevices()">
+                </div>
+                <select class="select-dark" id="device-filter-trust" onchange="renderDevices()">
+                    <option value="all">All Devices</option>
+                    <option value="trusted">Trusted Only</option>
+                    <option value="untrusted">Untrusted Only</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="modern-table" id="devices-table">
+                <thead>
+                    <tr>
+                        <th>Device Identity</th>
+                        <th>IP Address</th>
+                        <th>Hardware MAC</th>
+                        <th>Hardware Vendor</th>
+                        <th>First Seen</th>
+                        <th>Last Activity</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="devices-tbody">
+                    <!-- Dynamic rendering -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="panel">
-        <h2>Live traffic — protocol breakdown</h2>
-        <p class="note">Header/metadata only — source, destination, protocol, and size. Payload content is never captured or shown.</p>
-        <table id="protocol-table">
-            <thead>
-                <tr><th>Protocol / Service</th><th>Total bytes</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <!-- TAB 2: Recent Alerts Panel -->
+    <div class="panel" id="tab-content-alerts" style="display: none;">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">
+                    <span>Active Incident & Anomaly Log</span>
+                </div>
+                <div class="panel-subtitle">Rule-based triggers, traffic outliers, and machine learning anomalies</div>
+            </div>
+            <div class="panel-controls">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="search-input" id="alert-search-input" placeholder="Filter alerts by text..." oninput="renderAlerts()">
+                </div>
+                <select class="select-dark" id="alert-filter-type" onchange="renderAlerts()">
+                    <option value="all">All Alert Types</option>
+                    <option value="TRAFFIC_OUTLIER">Traffic Outlier</option>
+                    <option value="ML_ANOMALY">ML Anomaly</option>
+                    <option value="NEW_DEVICE">New Device</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" onclick="acknowledgeAllAlerts()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    Acknowledge All
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="modern-table" id="alerts-table">
+                <thead>
+                    <tr>
+                        <th>Incident Time</th>
+                        <th>Classification</th>
+                        <th>Target IP / MAC</th>
+                        <th>Telemetry & Diagnostics</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="alerts-tbody">
+                    <!-- Dynamic rendering -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="panel">
-        <h2>Live traffic — recent packets</h2>
-        <table id="packets-table">
-            <thead>
-                <tr><th>Time</th><th>Source IP</th><th>Destination IP</th><th>Protocol</th><th>Size (bytes)</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <!-- TAB 3: Live Recent Packets Panel -->
+    <div class="panel" id="tab-content-packets" style="display: none;">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">
+                    <span>Real-time Packet Telemetry</span>
+                </div>
+                <div class="panel-subtitle">L3/L4 packet header metadata (Zero payload content captured)</div>
+            </div>
+            <div class="panel-controls">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="search-input" id="packet-search-input" placeholder="Filter IP or protocol..." oninput="renderPackets()">
+                </div>
+                <select class="select-dark" id="packet-filter-protocol" onchange="renderPackets()">
+                    <option value="all">All Protocols</option>
+                    <option value="HTTPS">HTTPS</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="DNS">DNS (53/5353)</option>
+                    <option value="OTHER">Other</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" id="btn-pause-stream" onclick="toggleStreamPause()">
+                    <span id="pause-stream-text">Pause Stream</span>
+                </button>
+            </div>
+        </div>
 
-    <script>
-        async function trustDevice(mac) {
-            await fetch(`/api/trust/${mac}`, { method: 'POST' });
+        <div class="table-responsive">
+            <table class="modern-table" id="packets-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Source IP</th>
+                        <th></th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                        <th>Payload Size</th>
+                        <th>Volume Visual</th>
+                    </tr>
+                </thead>
+                <tbody id="packets-tbody">
+                    <!-- Dynamic rendering -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast System Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+    /* ==========================================================================
+       Global State & Initialization
+       ========================================================================== */
+    let currentDevices = [];
+    let currentAlerts = [];
+    let currentTraffic = { protocol_stats: [], recent_packets: [] };
+    let activeTab = 'devices';
+    let isStreamPaused = false;
+    let soundEnabled = true;
+    let refreshIntervalMs = 10000;
+    let refreshTimerId = null;
+    let countdownIntervalId = null;
+    let countdownRemaining = 10;
+    let chartInstance = null;
+    let knownAlertIds = new Set();
+    let initialLoadDone = false;
+
+    // Harmonious modern color palette for protocols
+    const PROTOCOL_COLORS = [
+        '#06b6d4', // Cyan
+        '#3b82f6', // Blue
+        '#8b5cf6', // Violet
+        '#ec4899', // Pink
+        '#f59e0b', // Amber
+        '#10b981', // Emerald
+        '#14b8a6', // Teal
+        '#6366f1', // Indigo
+        '#f43f5e', // Rose
+        '#84cc16'  // Lime
+    ];
+
+    /* ==========================================================================
+       Sound Synthesizer (Zero external dependencies)
+       ========================================================================== */
+    let audioCtx = null;
+    function playAlertChime(type = 'info') {
+        if (!soundEnabled) return;
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'danger') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.25);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now); // D5
+                osc.frequency.setValueAtTime(880, now + 0.08); // A5
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+        } catch (e) {
+            // Audio policy or unsupported
+        }
+    }
+
+    function toggleSoundAlerts() {
+        soundEnabled = !soundEnabled;
+        const icon = document.getElementById('sound-icon');
+        if (soundEnabled) {
+            icon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>`;
+            showToast('Audio notifications enabled', 'info');
+            playAlertChime('info');
+        } else {
+            icon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>`;
+            showToast('Audio notifications muted', 'info');
+        }
+    }
+
+    /* ==========================================================================
+       Toast Notifications
+       ========================================================================== */
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+
+        let iconSvg = '';
+        if (type === 'success') {
+            iconSvg = `<svg width="18" height="18" style="color: #34d399;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+        } else if (type === 'danger') {
+            iconSvg = `<svg width="18" height="18" style="color: #fb7185;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+        } else {
+            iconSvg = `<svg width="18" height="18" style="color: #38bdf8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+        }
+
+        toast.innerHTML = `${iconSvg} <span>${message}</span>`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3200);
+    }
+
+    /* ==========================================================================
+       Helpers & Formatting
+       ========================================================================== */
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function timeAgo(isoString) {
+        if (!isoString) return 'never';
+        try {
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) return isoString;
+            const now = new Date();
+            const diffSec = Math.floor((now - date) / 1000);
+            if (diffSec < 5) return 'just now';
+            if (diffSec < 60) return `${diffSec}s ago`;
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin}m ago`;
+            const diffHour = Math.floor(diffMin / 60);
+            if (diffHour < 24) return `${diffHour}h ago`;
+            return `${Math.floor(diffHour / 24)}d ago`;
+        } catch {
+            return isoString;
+        }
+    }
+
+    function copyToClipboard(text, element) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`Copied ${text} to clipboard`, 'success');
+        }).catch(() => {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast(`Copied ${text} to clipboard`, 'success');
+        });
+    }
+
+    /* ==========================================================================
+       Tab Navigation
+       ========================================================================== */
+    function switchTab(tabName) {
+        activeTab = tabName;
+        ['devices', 'alerts', 'packets'].forEach(t => {
+            const btn = document.getElementById(`tab-btn-${t}`);
+            const content = document.getElementById(`tab-content-${t}`);
+            if (t === tabName) {
+                btn.classList.add('active');
+                content.style.display = 'block';
+            } else {
+                btn.classList.remove('active');
+                content.style.display = 'none';
+            }
+        });
+    }
+
+    /* ==========================================================================
+       Stream Pause Control
+       ========================================================================== */
+    function toggleStreamPause() {
+        isStreamPaused = !isStreamPaused;
+        const btn = document.getElementById('btn-pause-stream');
+        const text = document.getElementById('pause-stream-text');
+        if (isStreamPaused) {
+            btn.classList.add('btn-trust');
+            text.textContent = 'Resume Stream';
+            showToast('Packet streaming paused', 'info');
+        } else {
+            btn.classList.remove('btn-trust');
+            text.textContent = 'Pause Stream';
+            showToast('Packet streaming resumed', 'info');
+            renderPackets();
+        }
+    }
+
+    /* ==========================================================================
+       Backend API Actions: Trust / Untrust / Acknowledge
+       ========================================================================== */
+    async function trustDevice(mac) {
+        try {
+            const res = await fetch(`/api/trust/${mac}`, { method: 'POST' });
+            if (res.ok) {
+                showToast(`Device ${mac} designated as Trusted Baseline`, 'success');
+                playAlertChime('info');
+                await refresh();
+            }
+        } catch (err) {
+            showToast('Failed to update device status', 'danger');
+        }
+    }
+
+    async function untrustDevice(mac) {
+        try {
+            const res = await fetch(`/api/untrust/${mac}`, { method: 'POST' });
+            if (res.ok) {
+                showToast(`Device ${mac} removed from baseline`, 'info');
+                await refresh();
+            }
+        } catch (err) {
+            showToast('Failed to update device status', 'danger');
+        }
+    }
+
+    async function ackAlert(id) {
+        try {
+            const res = await fetch(`/api/alerts/${id}/ack`, { method: 'POST' });
+            if (res.ok) {
+                showToast(`Incident #${id} acknowledged`, 'success');
+                await refresh();
+            }
+        } catch (err) {
+            showToast('Failed to acknowledge alert', 'danger');
+        }
+    }
+
+    async function acknowledgeAllAlerts() {
+        try {
+            const res = await fetch('/api/alerts/ack-all', { method: 'POST' });
+            if (res.ok) {
+                showToast('All alerts marked as acknowledged', 'success');
+                await refresh();
+            }
+        } catch (err) {
+            showToast('Failed to acknowledge alerts', 'danger');
+        }
+    }
+
+    /* ==========================================================================
+       Data Refresh & Synchronization
+       ========================================================================== */
+    async function triggerManualRefresh() {
+        const icon = document.getElementById('refresh-spin-icon');
+        icon.classList.add('spinning');
+        await refresh();
+        setTimeout(() => icon.classList.remove('spinning'), 500);
+        showToast('Telemetry refreshed', 'info');
+    }
+
+    async function refresh() {
+        try {
+            const [devicesRes, alertsRes, trafficRes] = await Promise.all([
+                fetch('/api/devices'),
+                fetch('/api/alerts'),
+                fetch('/api/traffic')
+            ]);
+
+            currentDevices = await devicesRes.json();
+            currentAlerts = await alertsRes.json();
+            const newTraffic = await trafficRes.json();
+
+            // Check if stream is paused; if not, update packets
+            if (!isStreamPaused || !currentTraffic.recent_packets.length) {
+                currentTraffic = newTraffic;
+            } else {
+                currentTraffic.protocol_stats = newTraffic.protocol_stats;
+            }
+
+            // Detect new alerts for notification sound
+            if (initialLoadDone) {
+                let hasNewAlert = false;
+                for (const alert of currentAlerts) {
+                    if (!knownAlertIds.has(alert.id)) {
+                        hasNewAlert = true;
+                        break;
+                    }
+                }
+                if (hasNewAlert) {
+                    playAlertChime('danger');
+                    showToast('New security alert detected', 'danger');
+                }
+            }
+            currentAlerts.forEach(a => knownAlertIds.add(a.id));
+            initialLoadDone = true;
+
+            // Render all UI components
+            updateExecutiveKPIs();
+            renderProtocolBreakdown();
+            renderDevices();
+            renderAlerts();
+            renderPackets();
+
+            // Update timestamp
+            const now = new Date();
+            document.getElementById('last-updated-text').textContent =
+                `Updated ${now.toLocaleTimeString()}`;
+            document.getElementById('header-status-text').textContent =
+                `Engine Active (${currentDevices.length} Hosts Monitored)`;
+
+        } catch (error) {
+            console.error('Refresh error:', error);
+            document.getElementById('header-status-text').textContent = 'Connecting to Scanner...';
+        }
+    }
+
+    /* ==========================================================================
+       Executive KPI Calculation
+       ========================================================================== */
+    function updateExecutiveKPIs() {
+        const totalDevices = currentDevices.length;
+        const trustedCount = currentDevices.filter(d => d.is_baseline).length;
+        const untrustedCount = totalDevices - trustedCount;
+
+        document.getElementById('kpi-device-count').textContent = totalDevices;
+        document.getElementById('kpi-baseline-count').textContent = `${trustedCount} Baseline`;
+        document.getElementById('kpi-untrusted-count').textContent = `${untrustedCount} Untrusted`;
+        document.getElementById('tab-badge-devices').textContent = totalDevices;
+
+        // Alerts
+        const totalAlerts = currentAlerts.length;
+        const unackAlerts = currentAlerts.filter(a => !a.acknowledged).length;
+        document.getElementById('kpi-alert-count').textContent = totalAlerts;
+        document.getElementById('kpi-unack-alerts').textContent = `${unackAlerts} Unacknowledged`;
+        document.getElementById('tab-badge-alerts').textContent = unackAlerts > 0 ? unackAlerts : totalAlerts;
+
+        const outlierCount = currentAlerts.filter(a => a.alert_type === 'TRAFFIC_OUTLIER').length;
+        const mlCount = currentAlerts.filter(a => a.alert_type === 'ML_ANOMALY').length;
+        document.getElementById('kpi-alert-summary').textContent = 
+            totalAlerts > 0 ? `${outlierCount} Outliers, ${mlCount} ML Anomalies` : 'Clean telemetry';
+
+        // Traffic Stats
+        let totalBytes = 0;
+        if (currentTraffic.protocol_stats) {
+            totalBytes = currentTraffic.protocol_stats.reduce((acc, p) => acc + (p.bytes || 0), 0);
+        }
+        document.getElementById('kpi-traffic-bytes').textContent = formatBytes(totalBytes);
+        document.getElementById('total-traffic-pill').textContent = `${formatBytes(totalBytes)} Logged`;
+        
+        const packetCount = (currentTraffic.recent_packets || []).length;
+        document.getElementById('kpi-packet-count').textContent = `${packetCount} Recent Frames`;
+        document.getElementById('kpi-protocol-count').textContent = `${(currentTraffic.protocol_stats || []).length} Services`;
+        document.getElementById('tab-badge-packets').textContent = packetCount;
+
+        // Defensive Posture Calculation
+        const healthStatus = document.getElementById('kpi-health-status');
+        const healthDetail = document.getElementById('kpi-health-detail');
+        if (unackAlerts >= 5 || mlCount >= 2) {
+            healthStatus.textContent = 'HIGH THREAT';
+            healthStatus.style.color = '#fb7185';
+            healthDetail.textContent = 'Multiple active anomalies detected';
+        } else if (unackAlerts > 0 || untrustedCount > 2) {
+            healthStatus.textContent = 'ATTENTION';
+            healthStatus.style.color = '#fbbf24';
+            healthDetail.textContent = `${untrustedCount} untrusted endpoints active`;
+        } else {
+            healthStatus.textContent = 'SECURE';
+            healthStatus.style.color = '#34d399';
+            healthDetail.textContent = 'Traffic parameters nominal';
+        }
+    }
+
+    /* ==========================================================================
+       Visual Protocol Analytics & Chart.js
+       ========================================================================== */
+    function renderProtocolBreakdown() {
+        const stats = currentTraffic.protocol_stats || [];
+        const totalBytes = stats.reduce((acc, p) => acc + (p.bytes || 0), 0);
+        const listContainer = document.getElementById('protocol-breakdown-list');
+
+        if (!stats.length || totalBytes === 0) {
+            listContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <div>No live traffic captured yet. Ensure traffic monitor is sniffing packets.</div>
+                </div>
+            `;
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+            return;
+        }
+
+        // Render ranked progress bars
+        listContainer.innerHTML = stats.map((p, idx) => {
+            const color = PROTOCOL_COLORS[idx % PROTOCOL_COLORS.length];
+            const percent = totalBytes > 0 ? ((p.bytes / totalBytes) * 100).toFixed(1) : 0;
+            return `
+                <div class="protocol-item">
+                    <div class="protocol-meta">
+                        <span class="protocol-name">
+                            <span class="protocol-color-dot" style="background-color: ${color};"></span>
+                            ${p.protocol}
+                        </span>
+                        <span class="protocol-value">${formatBytes(p.bytes)} <span style="color: var(--text-muted); font-size: 11px;">(${percent}%)</span></span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-bar-fill" style="width: ${percent}%; background: ${color};"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Render Chart.js Donut
+        const ctx = document.getElementById('protocolDonutChart');
+        if (!ctx) return;
+
+        const labels = stats.slice(0, 6).map(p => p.protocol);
+        const data = stats.slice(0, 6).map(p => p.bytes);
+        const colors = stats.slice(0, 6).map((_, i) => PROTOCOL_COLORS[i % PROTOCOL_COLORS.length]);
+
+        // Aggregate remainder into "Other"
+        if (stats.length > 6) {
+            labels.push('Other');
+            const otherBytes = stats.slice(6).reduce((a, b) => a + b.bytes, 0);
+            data.push(otherBytes);
+            colors.push('#64748b');
+        }
+
+        if (chartInstance) {
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = data;
+            chartInstance.data.datasets[0].backgroundColor = colors;
+            chartInstance.update();
+        } else {
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#0e1526',
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(14, 21, 38, 0.95)',
+                            borderColor: 'rgba(56, 189, 248, 0.3)',
+                            borderWidth: 1,
+                            padding: 10,
+                            bodyFont: { family: 'Inter', size: 12 },
+                            titleFont: { family: 'Inter', size: 13, weight: 'bold' },
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.raw;
+                                    const pct = totalBytes > 0 ? ((val / totalBytes) * 100).toFixed(1) : 0;
+                                    return ` ${context.label}: ${formatBytes(val)} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '72%'
+                }
+            });
+        }
+    }
+
+    /* ==========================================================================
+       Render Devices Table
+       ========================================================================== */
+    function renderDevices() {
+        const query = (document.getElementById('device-search-input').value || '').toLowerCase().trim();
+        const filterTrust = document.getElementById('device-filter-trust').value;
+        const tbody = document.getElementById('devices-tbody');
+
+        let filtered = currentDevices.filter(d => {
+            if (filterTrust === 'trusted' && !d.is_baseline) return false;
+            if (filterTrust === 'untrusted' && d.is_baseline) return false;
+
+            if (query) {
+                const searchStr = `${d.hostname || ''} ${d.mac || ''} ${d.vendor || ''} ${d.last_ip || ''}`.toLowerCase();
+                return searchStr.includes(query);
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                            <div>No matching devices found.</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(d => {
+            const hasHostname = d.hostname && d.hostname !== 'unknown' && d.hostname !== 'None';
+            const displayName = hasHostname ? d.hostname : (d.vendor && d.vendor !== 'unknown' ? `${d.vendor} Device` : 'Unresolved Host');
+            const ipDisplay = d.last_ip ? `<span class="ip-badge">${d.last_ip}</span>` : `<span style="color: var(--text-muted); font-size: 12px;">No IP Logged</span>`;
+
+            // Vendor badge
+            const vendor = d.vendor && d.vendor !== 'unknown' ? d.vendor : 'Generic NIC';
+
+            return `
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; font-size: 13.5px; color: #ffffff;">${displayName}</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">${hasHostname ? (d.vendor || 'Unknown vendor') : 'Dynamic ARP resolution'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${ipDisplay}</td>
+                    <td>
+                        <div class="mac-cell">
+                            <code>${d.mac}</code>
+                            <button class="copy-btn" onclick="copyToClipboard('${d.mac}', this)" title="Copy MAC address">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="device-vendor-badge">${vendor}</span>
+                    </td>
+                    <td style="color: var(--text-secondary); font-size: 12.5px;">${timeAgo(d.first_seen)}</td>
+                    <td style="color: var(--text-secondary); font-size: 12.5px;" title="${d.last_seen}">${timeAgo(d.last_seen)}</td>
+                    <td>
+                        ${d.is_baseline 
+                            ? `<span class="pill-badge pill-emerald"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Baseline</span>`
+                            : `<span class="pill-badge pill-amber"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg> Untrusted</span>`}
+                    </td>
+                    <td style="text-align: right;">
+                        ${d.is_baseline 
+                            ? `<button class="btn btn-untrust btn-sm" onclick="untrustDevice('${d.mac}')" title="Revoke baseline status">Demote</button>`
+                            : `<button class="btn btn-trust btn-sm" onclick="trustDevice('${d.mac}')" title="Promote to baseline trusted host">Trust Device</button>`}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /* ==========================================================================
+       Render Security Alerts Table
+       ========================================================================== */
+    function renderAlerts() {
+        const query = (document.getElementById('alert-search-input').value || '').toLowerCase().trim();
+        const filterType = document.getElementById('alert-filter-type').value;
+        const tbody = document.getElementById('alerts-tbody');
+
+        let filtered = currentAlerts.filter(a => {
+            if (filterType !== 'all' && a.alert_type !== filterType) return false;
+            if (query) {
+                const searchStr = `${a.alert_type || ''} ${a.message || ''} ${a.mac || ''} ${a.ip || ''}`.toLowerCase();
+                return searchStr.includes(query);
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div style="font-weight: 600; color: #34d399;">No security incidents found</div>
+                            <div style="font-size: 12px;">Network behavior is adhering to established baselines.</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(a => {
+            const badgeClass = a.alert_type === 'TRAFFIC_OUTLIER' ? 'TRAFFIC_OUTLIER' :
+                               a.alert_type === 'ML_ANOMALY' ? 'ML_ANOMALY' :
+                               a.alert_type === 'NEW_DEVICE' ? 'NEW_DEVICE' : 'DEFAULT';
+
+            const unackClass = !a.acknowledged ? 'alert-row-unack' : '';
+
+            // Clean message highlighting
+            let formattedMsg = a.message || 'No description provided';
+            formattedMsg = formattedMsg.replace(/(\b\d+(\.\d+)?\s*(bytes|KB|MB|GB|packets)?\b)/gi, '<span class="highlight-stat">$1</span>');
+
+            return `
+                <tr class="${unackClass}">
+                    <td style="white-space: nowrap;">
+                        <div style="font-weight: 600; font-size: 12.5px;">${timeAgo(a.timestamp)}</div>
+                        <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${a.timestamp ? a.timestamp.substring(11, 19) : ''}</div>
+                    </td>
+                    <td>
+                        <span class="alert-badge ${badgeClass}">${a.alert_type}</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            ${a.ip ? `<span class="ip-badge">${a.ip}</span>` : ''}
+                            ${a.mac ? `<code style="color: var(--text-muted); font-size: 11px;">${a.mac}</code>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="alert-msg">${formattedMsg}</div>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        ${a.acknowledged 
+                            ? `<span style="font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Resolved</span>`
+                            : `<button class="btn btn-secondary btn-sm" onclick="ackAlert(${a.id})" title="Mark this alert as acknowledged">Acknowledge</button>`}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /* ==========================================================================
+       Render Live Recent Packets Table
+       ========================================================================== */
+    function renderPackets() {
+        const query = (document.getElementById('packet-search-input').value || '').toLowerCase().trim();
+        const filterProto = document.getElementById('packet-filter-protocol').value;
+        const tbody = document.getElementById('packets-tbody');
+        const packets = currentTraffic.recent_packets || [];
+
+        let filtered = packets.filter(p => {
+            if (filterProto !== 'all') {
+                if (filterProto === 'DNS' && !p.protocol.toLowerCase().includes('dns') && !p.protocol.includes('53')) return false;
+                if (filterProto === 'HTTPS' && p.protocol !== 'HTTPS') return false;
+                if (filterProto === 'HTTP' && p.protocol !== 'HTTP') return false;
+                if (filterProto === 'OTHER' && (p.protocol === 'HTTPS' || p.protocol === 'HTTP' || p.protocol.includes('DNS'))) return false;
+            }
+            if (query) {
+                const searchStr = `${p.src_ip || ''} ${p.dst_ip || ''} ${p.protocol || ''}`.toLowerCase();
+                return searchStr.includes(query);
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            </div>
+                            <div>No packets matching filter.</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const maxSize = Math.max(...packets.map(p => p.size || 0), 1500);
+
+        tbody.innerHTML = filtered.map(p => {
+            const proto = (p.protocol || 'OTHER').toUpperCase();
+            let pillClass = 'OTHER';
+            if (proto.includes('HTTPS')) pillClass = 'HTTPS';
+            else if (proto.includes('HTTP')) pillClass = 'HTTP';
+            else if (proto.includes('DNS') || proto.includes('5353') || proto.includes('53')) pillClass = 'DNS';
+
+            const sizePercent = Math.min(100, Math.max(8, ((p.size || 0) / maxSize) * 100));
+
+            return `
+                <tr>
+                    <td style="color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: nowrap;">
+                        ${p.time || '--:--:--'}
+                    </td>
+                    <td>
+                        <span class="mono" style="color: #93c5fd; font-weight: 500;">${p.src_ip}</span>
+                    </td>
+                    <td style="text-align: center; color: var(--text-muted); width: 30px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </td>
+                    <td>
+                        <span class="mono" style="color: #c4b5fd; font-weight: 500;">${p.dst_ip}</span>
+                    </td>
+                    <td>
+                        <span class="proto-pill ${pillClass}">${p.protocol}</span>
+                    </td>
+                    <td style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                        ${p.size ? p.size.toLocaleString() + ' B' : '0 B'}
+                    </td>
+                    <td style="width: 140px;">
+                        <div class="progress-track" style="height: 5px;" title="${p.size} bytes">
+                            <div class="progress-bar-fill" style="width: ${sizePercent}%; background: var(--accent-cyan);"></div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /* ==========================================================================
+       Auto-refresh Timer & Countdown Controls
+       ========================================================================== */
+    function onIntervalChange() {
+        const val = parseInt(document.getElementById('refresh-interval-select').value, 10);
+        refreshIntervalMs = val;
+        resetTimer();
+        if (val > 0) {
+            showToast(`Auto-refresh interval set to ${val / 1000}s`, 'info');
+        } else {
+            showToast('Auto-refresh paused (manual mode)', 'info');
+        }
+    }
+
+    function resetTimer() {
+        if (refreshTimerId) clearInterval(refreshTimerId);
+        if (countdownIntervalId) clearInterval(countdownIntervalId);
+
+        const circle = document.getElementById('countdown-progress-bar');
+        const perimeter = 2 * Math.PI * 7; // ~44
+
+        if (refreshIntervalMs <= 0) {
+            circle.style.strokeDashoffset = perimeter;
+            return;
+        }
+
+        const totalSec = refreshIntervalMs / 1000;
+        countdownRemaining = totalSec;
+
+        countdownIntervalId = setInterval(() => {
+            countdownRemaining -= 1;
+            if (countdownRemaining <= 0) {
+                countdownRemaining = totalSec;
+            }
+            const offset = perimeter * (1 - (countdownRemaining / totalSec));
+            circle.style.strokeDashoffset = offset;
+        }, 1000);
+
+        refreshTimerId = setInterval(() => {
             refresh();
-        }
-        async function refresh() {
-            const devicesRes = await fetch('/api/devices');
-            const devices = await devicesRes.json();
-            const devicesBody = document.querySelector('#devices-table tbody');
-            devicesBody.innerHTML = devices.map(d => `
-                <tr>
-                    <td>${d.hostname && d.hostname !== 'unknown' ? d.hostname : '<em>unresolved</em>'}</td>
-                    <td>${d.mac}</td>
-                    <td>${d.vendor}</td>
-                    <td>${d.first_seen}</td>
-                    <td>${d.last_seen}</td>
-                    <td class="${d.is_baseline ? 'baseline-yes' : 'baseline-no'}">${d.is_baseline ? 'Yes' : 'No'}</td>
-                    <td>${d.is_baseline ? '' : `<button onclick="trustDevice('${d.mac}')">Trust</button>`}</td>
-                </tr>
-            `).join('');
+        }, refreshIntervalMs);
+    }
 
-            const alertsRes = await fetch('/api/alerts');
-            const alertsList = await alertsRes.json();
-            const alertsBody = document.querySelector('#alerts-table tbody');
-            alertsBody.innerHTML = alertsList.map(a => `
-                <tr class="alert-row">
-                    <td>${a.timestamp}</td>
-                    <td class="alert-type">${a.alert_type}</td>
-                    <td>${a.message}</td>
-                </tr>
-            `).join('');
-
-            const trafficRes = await fetch('/api/traffic');
-            const traffic = await trafficRes.json();
-
-            const protocolBody = document.querySelector('#protocol-table tbody');
-            protocolBody.innerHTML = traffic.protocol_stats.map(p => `
-                <tr><td>${p.protocol}</td><td>${p.bytes.toLocaleString()}</td></tr>
-            `).join('') || '<tr><td colspan="2"><em>No traffic captured yet</em></td></tr>';
-
-            const packetsBody = document.querySelector('#packets-table tbody');
-            packetsBody.innerHTML = traffic.recent_packets.map(p => `
-                <tr>
-                    <td>${p.time}</td>
-                    <td>${p.src_ip}</td>
-                    <td>${p.dst_ip}</td>
-                    <td>${p.protocol}</td>
-                    <td>${p.size}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="5"><em>No traffic captured yet</em></td></tr>';
-
-            document.getElementById('status').textContent =
-                `${devices.length} device(s) known, ${alertsList.length} alert(s) logged — auto-refreshing every 10s`;
-        }
-
+    /* ==========================================================================
+       App Initialization
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
         refresh();
-        setInterval(refresh, 10000);
-    </script>
+        resetTimer();
+    });
+
+    // Keyboard shortcut: Press 'R' to refresh
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') {
+            if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+                e.preventDefault();
+                triggerManualRefresh();
+            }
+        }
+    });
+</script>
+
 </body>
 </html>
